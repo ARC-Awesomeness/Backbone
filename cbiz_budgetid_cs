@@ -1,0 +1,87 @@
+/*******************************************************************
+ *
+ * @NApiVersion 2.x
+ * @NScriptType ClientScript
+ * @version: 1.1.0
+ *
+ * Author: Samiha Chowdhury  3/1/24
+ * Purpose: This script is used for setting lineitem details based on body fields on RMA.
+ *
+ * ******************************************************************* */
+
+define(['N/search'], function (search) {
+
+    /**
+     * Executed when a field is changed by a user or client side call. This event may also execute directly through beforeLoad user event scripts.
+     *
+     * @param {object} scriptContext
+     * @param {object} scriptContext.currentRecord The current form record.
+     * @param {string} scriptContext.sublistId The sublist ID name.
+     * @param {string} scriptContext.fieldId The field ID name.
+     * @param {string} scriptContext.line The line number (zero-based index) if the field is in a sublist or a matrix. If the field is not a sublist or matrix, the default value is undefined.
+     * @param {string} scriptContext.column The column number (zero-based index) if the field is in a matrix. If the field is not in a matrix, the default value is undefined.
+     */
+    function fieldChanged(scriptContext) {
+
+        try {
+            log.debug('in trigger');
+            var CurrentRecord = scriptContext.currentRecord;
+
+            var sublistId = 'line';
+            var fieldId = scriptContext.fieldId;
+
+            if (!scriptContext.sublistId && fieldId === 'custbody_cbiz_bac_budget_id') {
+                log.debug('in field change');
+
+                var lineCount = CurrentRecord.getLineCount({ sublistId: sublistId });
+                for (var line = 0; line < lineCount; line++) {
+
+                    CurrentRecord.selectLine({ sublistId: sublistId, line: line });
+                    CurrentRecord.setCurrentSublistValue({ sublistId: sublistId, fieldId: 'custcol_cbiz_bac_budget_id', value: CurrentRecord.getValue({ fieldId: fieldId }), ignoreFieldChange: false });
+                    CurrentRecord.commitLine({ sublistId: sublistId });
+                    log.debug('in field change');
+                }
+            }
+
+
+        } catch (err) {
+            log.error({ title: 'fieldChanged', details: err });
+            throw err;
+        }
+    }
+
+    /**
+     * Executed on transaction forms when a field that sources information from another field is modified.
+     *
+     * This event behaves like a fieldChanged event after all dependent field values have been set. The event waits for any slaved or cascaded field changes to complete before calling the user defined function.
+     *
+     * @param {object} scriptContext
+     * @param {object} scriptContext.currentRecord The current form record.
+     * @param {string} scriptContext.sublistId The sublist ID name.
+     * @param {string} scriptContext.fieldId The field ID name.
+     */
+    function postSourcing(scriptContext) {
+
+        try {
+
+            var CurrentRecord = scriptContext.currentRecord;
+
+            var sublistId = scriptContext.sublistId;
+            var fieldId = scriptContext.fieldId;
+
+            if (sublistId === 'line' && fieldId === 'item' && CurrentRecord.getCurrentSublistValue({ sublistId: sublistId, fieldId: fieldId })) {
+                log.debug('in postsource ');
+
+                CurrentRecord.setCurrentSublistValue({ sublistId: sublistId, fieldId: 'custcol_cbiz_bac_budget_id', value: CurrentRecord.getValue({ fieldId: 'custbody_cbiz_bac_budget_id' }), ignoreFieldChange: false });
+            }
+        } catch (err) {
+            log.error({ title: 'postSourcing', details: err });
+            throw err;
+        }
+    }
+
+    return {
+        fieldChanged: fieldChanged,
+        postSourcing: postSourcing
+    };
+});
